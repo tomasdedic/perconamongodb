@@ -1,0 +1,27 @@
+apiVersion: psmdb.percona.com/v1-11-0
+kind: PerconaServerMongoDB
+metadata:
+  name: mongo1
+spec:
+  replsets:
+  - name: rs0
+    size: 3
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+    podDisruptionBudget:
+      maxUnavailable: 1
+    expose:
+      enabled: false
+      exposeType: LoadBalancer
+    resources:
+      limits:
+        cpu: "400m"
+        memory: "0.7G"
+      requests:
+        cpu: "400m"
+        memory: "0.7G"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 3Gi

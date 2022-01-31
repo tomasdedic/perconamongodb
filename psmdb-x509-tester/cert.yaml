@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cluster1-psmdb-x509-ca
+spec:
+  ca:
+    secretName: cluster1-ssl-internal
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster1-psmdb-egegunes
+spec:
+  secretName: cluster1-psmdb-egegunes
+  isCA: false
+  commonName: egegunes2
+  subject:
+    organizations:
+      - percona
+    organizationalUnits:
+      - cloud
+  usages:
+    - digital signature
+    - client auth
+  issuerRef:
+    name: cluster1-psmdb-x509-ca
+    kind: Issuer
+    group: cert-manager.io
