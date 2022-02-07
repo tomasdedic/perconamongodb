@@ -1,0 +1,22 @@
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDBRestore
+metadata:
+  name: restore1
+spec:
+  clusterName: mongo1
+  backupName: backup1
+  pitr:
+    type: date
+    date: 2022-02-07 20:52:00
+#  backupSource:
+#    destination: s3://S3-BACKUP-BUCKET-NAME-HERE/BACKUP-DESTINATION
+#    s3:
+#      credentialsSecret: my-cluster-name-backup-s3
+#      region: us-west-2
+#      bucket: S3-BACKUP-BUCKET-NAME-HERE
+#      endpointUrl: https://s3.us-west-2.amazonaws.com/
+#      prefix: ""
+#    azure:
+#      credentialsSecret: SECRET-NAME
+#      prefix: PREFIX-NAME
+#      container: CONTAINER-NAME

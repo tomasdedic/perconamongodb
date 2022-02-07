@@ -1,0 +1,6 @@
+bases:
+- ../base
+# openapi:
+#   path: perconaservermongodb.json
+patchesStrategicMerge:
+- cr.yaml

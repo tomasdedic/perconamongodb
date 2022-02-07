@@ -215,7 +215,3 @@ některých scénářích může být vhodné mít sharding vypnutý.
 ### Jak se v konfigurci operátoru pracuje s definicí velikosti PVC (lze tam konfigurovat i PV storageClass, kdyby byly pod K8s různé storage tiery?)
 
 ### Obecně, co za konfigurace lze řešit pomocí GitOPs /Operátoru.
-
-### Backup and Recovery obecně
-
-### PIT recovery
