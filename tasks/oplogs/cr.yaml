@@ -64,3 +64,4 @@ spec:
       enabled: true
       oplogSpanMin: 5
     tasks:
+      keep: 2

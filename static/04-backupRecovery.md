@@ -167,8 +167,8 @@ Bereme jako test ze se nam zalohuji **op logy**
 ### FULL RECOVERY + PITR do stejného MongoDB clusteru
 > Problem pri fullrecovery je ztrata loadBalanceru jelikoz **mongos se restartuje** takze cluster si pak leasne novou IP adresu, potreba poresit zamkem v Azure a vynutit si IP adresu LB.  
 
-**!Pozor je zde trick mcli udava cas lokalne ale AKS bezi -1H, PITR date je tedy
-potreba uvadet taky s -1H!**
+**!Pozor je zde trik mcli udavá čas lokálně, ale AKS bezi v UTC tedy -1H, PITR date je tedy
+potreba uvadet taky s přepočtem -1H!**
 ```sh
 # Pridame jeste 100 zaznamu
 [direct: mongos] backuptest> db.bbc.countDocuments()
@@ -186,6 +186,8 @@ restore1   mongo1    ready    4m46s
 ```
 
 ### FULL RECOVERY + PITR do jiného MongoDB clusteru
-Skusíme i jinou konfiguraci shardingu tedy pouze rs0
+Snížíme počet shardů a z 2 na 1 a provedeme recovery do stejného clusteru:
 
+
+Vytvoříme novou instalace MongoDB clusteru a recovery provedeme do něj:
 
