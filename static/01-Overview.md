@@ -25,3 +25,9 @@
 [TLS with CertManger](https://www.percona.com/doc/kubernetes-operator-for-psmongodb/TLS.html)  
 [MongoDB manual](https://docs.mongodb.com/v4.4)  
 
+
+## TOOLING
+- jq
+- yq
+- kustomize
+- mongosh

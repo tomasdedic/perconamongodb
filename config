@@ -7,7 +7,7 @@ clusters:
 contexts:
 - context:
     cluster: percona-poc
-    namespace: percona
+    namespace: percona-pmm
     user: clusterUser_Percona-rg_percona-poc
   name: percona-poc
 current-context: percona-poc

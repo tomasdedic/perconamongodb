@@ -4,7 +4,7 @@ metadata:
   name: mongo1
 spec:
   replsets:
-  - name: rs1
+  - name: rs0
     size: 3
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"

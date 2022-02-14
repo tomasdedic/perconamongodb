@@ -1,0 +1,19 @@
+bases:
+- ../base
+# openapi:
+#   path: perconaservermongodb.json
+patchesStrategicMerge:
+- cr.yaml
+
+resources:
+  - backup.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+- name: minio-backup
+  literals:
+  - AWS_ACCESS_KEY_ID=root
+  - AWS_SECRET_ACCESS_KEY=otevriProsim
+

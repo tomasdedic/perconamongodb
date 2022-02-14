@@ -62,6 +62,3 @@ spec:
           prefix: ""
     pitr:
       enabled: false
-#      oplogSpanMin: 10
-    tasks:
-      keep: 2

@@ -47,6 +47,7 @@ spec:
           requests:
             storage: 10Gi
   backup:
+    debug: true
     enabled: true
     restartOnFailure: true
     image: percona/percona-server-mongodb-operator:1.11.0-backup
@@ -62,4 +63,11 @@ spec:
           prefix: ""
     pitr:
       enabled: true
-      oplogSpanMin: 10
+#      oplogSpanMin: 10
+    tasks:
+    - name: cron
+      enabled: true
+      schedule: "*/3 * * * *"
+      keep: 2
+      storageName: minio
+      compressionType: gzip

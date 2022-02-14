@@ -82,7 +82,24 @@ git clone (moje git repo) && cd $(basename $_ .git)
 
 ```yaml
 kb apply -f tasks/newMongoInstance/cr.yaml
+```
+
+```sh
+#filtrovane logy operatoru
+kb logs $(kb get pods -l name=percona-server-mongodb-operator -o name)|jq -r 'del(.stacktrace,.errorVerbose,.ts)'
+```
+
+```sh
 #test
+MONGO_EP=$(kb get svc mongo1-mongos -o yaml|yq e '.status.loadBalancer.ingress[0].ip' -)
+USER_ADMIN_USER=$(kb get secrets internal-mongo1-users -o yaml|yq e '.data.MONGODB_USER_ADMIN_USER' -|base64 -d)
+USER_ADMIN_PASS=$(kb get secrets internal-mongo1-users -o yaml|yq e '.data.MONGODB_USER_ADMIN_PASSWORD' -|base64 -d)
+CLUSTER_ADMIN_USER=$(kb get secrets internal-mongo1-users -o yaml|yq e '.data.MONGODB_CLUSTER_ADMIN_USER' -|base64 -d)
+CLUSTER_ADMIN_PASS=$(kb get secrets internal-mongo1-users -o yaml|yq e '.data.MONGODB_CLUSTER_ADMIN_PASSWORD' -|base64 -d)
+
+# priradime roli readwrite pro uzivatele clusterAdmin
+mongosh mongodb://$MONGO_EP -u $CLUSTER_ADMIN_USER -p $CLUSTER_ADMIN_PASS
+
 db.version()
 db.adminCommand( { listShards: 1 } )
 ```
@@ -117,7 +134,6 @@ mongo1-rs0-1                                       Ready
 mongo1-rs0-2                                       Ready
 percona-server-mongodb-operator-5dd88ff7f7-mzgmf   Ready
 ``` 
-Overall limits and requests:
 
 
 ### Change POD limits/requests
@@ -211,7 +227,32 @@ Zatím nevím jak se k tomu postavit .
 ### bez Shardingu
 Provoz se zapnutným shardigem může mít vyšší požadavky na resourci clusteru. V
 některých scénářích může být vhodné mít sharding vypnutý.  
+**Každý pod RS však bude muset mít samostatný external EP**, přijde mi tak
+výhodnější mít cluster s shardingem klidně i s **shard=1**
 
 ### Jak se v konfigurci operátoru pracuje s definicí velikosti PVC (lze tam konfigurovat i PV storageClass, kdyby byly pod K8s různé storage tiery?)
+Ano PV backend jde konfigurovat pro kubernetes běžným způsobem.
 
 ### Obecně, co za konfigurace lze řešit pomocí GitOPs /Operátoru.
+Obecně jde řešit vše, co se týká běžného provozu.  
+Pro konfiguraci jednotlivých komponent lze použít **configMapy nebo secretu** při dodržení jmenné
+nomenklatury
+```sh
+# jmena custom configmap 
+my-cluster-name-rs0-mongod - the Replica Set (mongod) Pods
+my-cluster-name-cfg-mongod - the Config Server Pods
+my-cluster-name-mongos - the mongos Pods
+
+# jmena custom secrets
+my-cluster-name-rs0-mongod - the Replica Set Pods
+my-cluster-name-cfg-mongod - the Config Server Pods
+my-cluster-name-mongos - the mongos Pods
+# e.g
+mongo1-rs0-mongod
+mongo1-cfg-mongod
+mongo1-mongos
+
+#konfigurace musí být pod konkrétním klíčem
+data.mongod key - Replica Set (mongod) and Config Server Pods
+data.mongos key - mongos Pods
+```

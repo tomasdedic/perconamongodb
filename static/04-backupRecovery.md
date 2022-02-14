@@ -40,7 +40,7 @@ var randomDate = function () {
 }
 for (var i = 1; i <= 100; ++i) {
     var randomName = (Math.random()+1).toString(36).substring(2);
-    db.bbc.insert({name: randomName, creationDate: randomDate(), uid: i});
+    db.bbc.insertOne({name: randomName, creationDate: randomDate(), uid: i});
   }
 db.bbc.find()
 
@@ -84,10 +84,20 @@ mcli ls local
 ```
 Ok bucket mame vytvoren a ted uděláme samotnou backup.
 
-### FULL BACKUP  
+### FULL BACKUP ondemand
 Provedeme backup shardované databáze přičemž admin a config DB jsou původní,
 systémové.  
-"On demand" backup provedeme na minio S3 storage do **bucketu: testbackup**
+"On demand" backup provedeme na minio S3 storage do **bucketu: testbackup**  
+Pro vazbu mezi S3 storage a backupem je potřeba mít vytvořený **finalizer** který po smazání
+resourcu smaže i odpovídající soubory na S3 (objekt psmdb-backup)
+
+```yaml
+kind: PerconaServerMongoDBBackup
+metadata:
+  finalizers:
+  - delete-backup
+...
+```
 
 ```sh
 ➤ kustomize build tasks/backup/|kb apply -f -
@@ -124,7 +134,7 @@ Handling connection for 9000
 ### OPTLOG (PITR) BACKUP
 > It is necessary to have at least one full backup to use point-in-time recovery. Percona Backup for MongoDB will not upload operations logs if there is no full backup. This is true for new clusters and also true for clusters which have been just recovered from backup
 ```sh
-# cas je nastaven na 5 minut pro ukladanni oplogu
+# cas je nastaven na 10 minut pro ukladanni oplogu
 ➤ kustomize build tasks/oplogs|kb apply -f -
 perconaservermongodb.psmdb.percona.com/mongo1 configured
 ```
@@ -184,10 +194,90 @@ restore1   mongo1    ready    4m46s
 [direct: mongos] backuptest> db.bbc.countDocuments()
 54498
 ```
+**Provedla se tedy recovery do časově nejvíce relevantního fullBackup a následně 
+byly aplikováný OPlogy.**
+
+### RETENCE cron záloh a automatické mazaní z S3 storage
+```sh
+#vycistime stare backup 
+kb delete perconaservermongodbbackups.psmdb.percona.com --all
+#smazeme OPlogy na s3 storage
+mcli rm --force --recursive local/testbackup/pbmPitr/
+```
+vytvoříme job který poběží každé **3 minuty** a udělá **full backup s retencí 2 
+uspěšných záloh** a zároveň vytvoříme fullbackup onDemand
+```sh
+#schedule: "*/3 * * * *"
+kustomize build tasks/backupretention|kb apply -f -
+```
+```sh
+➤ kb get perconaservermongodbbackups.psmdb.percona.com
+NAME                               CLUSTER   STORAGE   DESTINATION            STATUS   COMPLETED   AGE
+backup1                            mongo1    minio     2022-02-14T11:55:16Z   ready    97s         2m22s
+
+➤ mcli ls local/testbackup/ 
+[2022-02-14 12:55:40 CET] 3.3KiB STANDARD 2022-02-14T11:55:16Z.pbm.json
+[2022-02-14 12:55:22 CET] 3.4MiB STANDARD 2022-02-14T11:55:16Z_cfg.dump.gz
+[2022-02-14 12:55:25 CET] 9.5KiB STANDARD 2022-02-14T11:55:16Z_cfg.oplog.gz
+[2022-02-14 12:55:22 CET] 594KiB STANDARD 2022-02-14T11:55:16Z_rs0.dump.gz
+[2022-02-14 12:55:40 CET] 1.8KiB STANDARD 2022-02-14T11:55:16Z_rs0.oplog.gz
+[2022-02-14 12:55:22 CET] 554KiB STANDARD 2022-02-14T11:55:16Z_rs1.dump.gz
+[2022-02-14 12:55:37 CET] 1.7KiB STANDARD 2022-02-14T11:55:16Z_rs1.oplog.gz
+[2022-02-14 12:55:34 CET]     0B pbmPitr/
+---full backup backup1
+# po 15 minutach budou stale rotovat dve posledni scheduled zalohy
+➤ kb get perconaservermongodbbackups.psmdb.percona.com
+NAME                               CLUSTER   STORAGE   DESTINATION            STATUS   COMPLETED   AGE
+backup1                            mongo1    minio     2022-02-14T11:55:16Z   ready    18m         19m
+cron-mongo1-20220214120900-dssxz   mongo1    minio     2022-02-14T12:09:22Z   ready    4m29s       5m8s
+cron-mongo1-20220214121200-mjrvl   mongo1    minio     2022-02-14T12:12:22Z   ready    82s         2m8s
+
+➤ mcli ls local/testbackup/
+[2022-02-14 12:54:03 CET]     5B STANDARD .pbm.init
+[2022-02-14 12:55:40 CET] 3.3KiB STANDARD 2022-02-14T11:55:16Z.pbm.json
+[2022-02-14 12:55:22 CET] 3.4MiB STANDARD 2022-02-14T11:55:16Z_cfg.dump.gz
+[2022-02-14 12:55:25 CET] 9.5KiB STANDARD 2022-02-14T11:55:16Z_cfg.oplog.gz
+[2022-02-14 12:55:22 CET] 594KiB STANDARD 2022-02-14T11:55:16Z_rs0.dump.gz
+[2022-02-14 12:55:40 CET] 1.8KiB STANDARD 2022-02-14T11:55:16Z_rs0.oplog.gz
+[2022-02-14 12:55:22 CET] 554KiB STANDARD 2022-02-14T11:55:16Z_rs1.dump.gz
+[2022-02-14 12:55:37 CET] 1.7KiB STANDARD 2022-02-14T11:55:16Z_rs1.oplog.gz
+---full backup backup1
+[2022-02-14 13:09:40 CET] 3.3KiB STANDARD 2022-02-14T12:09:22Z.pbm.json
+[2022-02-14 13:09:28 CET] 3.4MiB STANDARD 2022-02-14T12:09:22Z_cfg.dump.gz
+[2022-02-14 13:09:32 CET] 8.5KiB STANDARD 2022-02-14T12:09:22Z_cfg.oplog.gz
+[2022-02-14 13:09:28 CET] 594KiB STANDARD 2022-02-14T12:09:22Z_rs0.dump.gz
+[2022-02-14 13:09:40 CET] 1.7KiB STANDARD 2022-02-14T12:09:22Z_rs0.oplog.gz
+[2022-02-14 13:09:28 CET] 564KiB STANDARD 2022-02-14T12:09:22Z_rs1.dump.gz
+[2022-02-14 13:09:37 CET] 5.5KiB STANDARD 2022-02-14T12:09:22Z_rs1.oplog.gz
+---cron fullbackup cron-mongo1-20220214120900-dssxz #1
+[2022-02-14 13:12:47 CET] 3.3KiB STANDARD 2022-02-14T12:12:22Z.pbm.json
+[2022-02-14 13:12:30 CET] 3.4MiB STANDARD 2022-02-14T12:12:22Z_cfg.dump.gz
+[2022-02-14 13:12:33 CET] 8.7KiB STANDARD 2022-02-14T12:12:22Z_cfg.oplog.gz
+[2022-02-14 13:12:27 CET] 594KiB STANDARD 2022-02-14T12:12:22Z_rs0.dump.gz
+[2022-02-14 13:12:40 CET] 1.8KiB STANDARD 2022-02-14T12:12:22Z_rs0.oplog.gz
+[2022-02-14 13:12:27 CET] 554KiB STANDARD 2022-02-14T12:12:22Z_rs1.dump.gz
+[2022-02-14 13:12:47 CET] 1.9KiB STANDARD 2022-02-14T12:12:22Z_rs1.oplog.gz
+---cron fullbackup cron-mongo1-20220214121200-mjrvl #2
+[2022-02-14 13:13:05 CET]     0B pbmPitr/
+---OPlog
+```
 
 ### FULL RECOVERY + PITR do jiného MongoDB clusteru
-Snížíme počet shardů a z 2 na 1 a provedeme recovery do stejného clusteru:
+**Recovery jde tímto schématem provádět pouze do clusterů vytvořených přez
+Percona MongoDB operátor**
+
+#### Snížíme počet shardů a z 2 na 1 a provedeme recovery do stejného clusteru:
+Snížit jednoduše počet shardů čistě přez operátor nepůjde 
+```sh
+kustomize build tasks/sharding/sharddown/|kb apply -f -
+> request":"percona/mongo1","error":"check remove posibility for rs rs1: non system db found: backuptest","errorVerbose":"non system db found:
+#presuneme tedy databazi backuptest na chunk rs0
+db.adminCommand( { removeShard: "rs1" } )
+db.printShardingStatus()
+# operator jede v consolidation loop takze po presunu customdb na rs0 zacne
+# presouvat systemove databaze automaticky
+```
 
 
-Vytvoříme novou instalace MongoDB clusteru a recovery provedeme do něj:
+#### Vytvoříme novou instalace MongoDB clusteru a recovery provedeme do něj:
 
