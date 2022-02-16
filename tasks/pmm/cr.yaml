@@ -1,0 +1,119 @@
+apiVersion: psmdb.percona.com/v1-11-0
+kind: PerconaServerMongoDB
+metadata:
+  name: mongo1
+spec:
+  allowUnsafeConfigurations: false
+  backup:
+    enabled: true
+    image: percona/percona-server-mongodb-operator:1.11.0-backup
+    pitr:
+      enabled: false
+    restartOnFailure: true
+    serviceAccountName: percona-server-mongodb-operator
+  crVersion: 1.11.0
+  image: percona/percona-server-mongodb:4.4.10-11
+  imagePullPolicy: Always
+  mongod:
+    net:
+      hostPort: 0
+      port: 27017
+    operationProfiling:
+      mode: slowOp
+      rateLimit: 100
+      slowOpThresholdMs: 100
+    security:
+      enableEncryption: true
+      encryptionCipherMode: AES256-CBC
+      encryptionKeySecret: my-cluster-name-mongodb-encryption-key
+      redactClientLogData: false
+    setParameter:
+      ttlMonitorSleepSecs: 60
+      wiredTigerConcurrentReadTransactions: 128
+      wiredTigerConcurrentWriteTransactions: 128
+    storage:
+      engine: wiredTiger
+      inMemory:
+        engineConfig:
+          inMemorySizeRatio: 0.9
+      wiredTiger:
+        collectionConfig:
+          blockCompressor: snappy
+        engineConfig:
+          cacheSizeRatio: 0.5
+          directoryForIndexes: false
+          journalCompressor: snappy
+        indexConfig:
+          prefixCompression: true
+  pmm:
+    enabled: true
+    image: percona/pmm-client:2.24.0
+    serverHost: monitoring-service
+  replsets:
+  - affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    expose:
+      enabled: false
+      exposeType: LoadBalancer
+    name: rs0
+    podDisruptionBudget:
+      maxUnavailable: 0
+    resources:
+      limits:
+        cpu: 400m
+        memory: 0.7G
+      requests:
+        cpu: 100m
+        memory: 0.5G
+    size: 0
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 3Gi
+  secrets:
+    users: my-cluster-name-secrets
+  sharding:
+    configsvrReplSet:
+      affinity:
+        antiAffinityTopologyKey: kubernetes.io/hostname
+      expose:
+        enabled: false
+        exposeType: ClusterIP
+      podDisruptionBudget:
+        maxUnavailable: 0
+      resources:
+        limits:
+          cpu: 300m
+          memory: 0.5G
+        requests:
+          cpu: 100m
+          memory: 0.5G
+      size: 0
+      volumeSpec:
+        persistentVolumeClaim:
+          resources:
+            requests:
+              storage: 3Gi
+    enabled: true
+    mongos:
+      affinity:
+        antiAffinityTopologyKey: kubernetes.io/hostname
+      expose:
+        exposeType: LoadBalancer
+      podDisruptionBudget:
+        maxUnavailable: 0
+      resources:
+        limits:
+          cpu: 300m
+          memory: 0.5G
+        requests:
+          cpu: 100m
+          memory: 0.5G
+      size: 0
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: 4.4-recommended
+    schedule: 0 2 * * *
+    setFCV: false
+    versionServiceEndpoint: https://check.percona.com
