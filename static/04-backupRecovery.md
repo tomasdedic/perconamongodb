@@ -14,7 +14,7 @@ CLUSTER_ADMIN_PASS=$(kb get secrets internal-mongo1-users -o yaml|yq e '.data.MO
 
 # priradime roli readwrite pro uzivatele clusterAdmin
 mongosh mongodb://$MONGO_EP -u $USER_ADMIN_USER -p $USER_ADMIN_PASS
-
+use admin
 db.grantRolesToUser(
     "clusterAdmin",
     [
@@ -38,11 +38,12 @@ var day = 1000 * 60 * 60 * 24;
 var randomDate = function () {
   return new Date(Date.now() - (Math.floor(Math.random() * day)));
 }
-for (var i = 1; i <= 100; ++i) {
+for (var i = 1; i <= 20000; ++i) {
     var randomName = (Math.random()+1).toString(36).substring(2);
     db.bbc.insertOne({name: randomName, creationDate: randomDate(), uid: i});
   }
 db.bbc.find()
+db.bbc.countDocuments()
 
 db.printShardingStatus()
 db.bbc.getShardDistribution()
@@ -267,11 +268,13 @@ cron-mongo1-20220214121200-mjrvl   mongo1    minio     2022-02-14T12:12:22Z   re
 Percona MongoDB operátor**
 
 #### Snížíme počet shardů a z 2 na 1 a provedeme recovery do stejného clusteru:
-Snížit jednoduše počet shardů čistě přez operátor nepůjde 
+Snížit jednoduše počet shardů čistě přez operátor nepůjde jelikož máme custom
+databázi **backuptest**
 ```sh
 kustomize build tasks/sharding/sharddown/|kb apply -f -
 > request":"percona/mongo1","error":"check remove posibility for rs rs1: non system db found: backuptest","errorVerbose":"non system db found:
 #presuneme tedy databazi backuptest na chunk rs0
+db.adminCommand( { movePrimary: "backuptest", to: "rs0" } )
 db.adminCommand( { removeShard: "rs1" } )
 db.printShardingStatus()
 # operator jede v consolidation loop takze po presunu customdb na rs0 zacne
@@ -280,4 +283,34 @@ db.printShardingStatus()
 
 
 #### Vytvoříme novou instalace MongoDB clusteru a recovery provedeme do něj:
+MongoDB se bude jmenovat mongo2, bude mít pouze 1 shard(rs0), backup je udělaný s 2 shardy (rs0,rs1)
+```sh
+kb apply -f tasks/newMongoInstance/mongo2/cr.yaml
+kb apply -f tasks/restore/differentcluster/restore.yaml
+
+
+spec:
+  backupSource:
+    destination: s3://backuptest/backup1
+    s3:
+      credentialsSecret: minio-backup
+      endpointUrl: http://minio:9000
+      region: westeurope
+  clusterName: mongo2
+status:
+  error: |
+    set resync backup list from the store: init storage: get S3 object header: InvalidParameter: 1 validation error(s) found.
+    - minimum field size of 1, HeadObjectInput.Bucket.
+  state: error
+
+```
+
+```sh
+#dabaze: backuptes collection: bbc (20000 documents)
+#test
+
+MONGO_EP=$(kb get svc mongo2-mongos -o yaml|yq e '.status.loadBalancer.ingress[0].ip' -)
+CLUSTER_ADMIN_USER=$(kb get secrets internal-mongo2-users -o yaml|yq e '.data.MONGODB_CLUSTER_ADMIN_USER' -|base64 -d)
+CLUSTER_ADMIN_PASS=$(kb get secrets internal-mongo2-users -o yaml|yq e '.data.MONGODB_CLUSTER_ADMIN_PASSWORD' -|base64 -d)
+```
 
