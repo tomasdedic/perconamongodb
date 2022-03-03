@@ -291,7 +291,7 @@ kb apply -f tasks/restore/differentcluster/restore.yaml
 
 spec:
   backupSource:
-    destination: s3://backuptest/backup1
+    destination: s3://backuptest/2022-03-02T14:55:48Z
     s3:
       credentialsSecret: minio-backup
       endpointUrl: http://minio:9000
