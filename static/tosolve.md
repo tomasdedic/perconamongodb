@@ -1,9 +1,34 @@
 ## 1 .correct way how to scale down
 I have a seeded database across shards: rs0,rs1. I would like to shard down.
 ```sh
+use config
+db.settings.insertOne( { _id:"chunksize", value: 1 } )
+
+use backuptest
+sh.enableSharding("backuptest")
+sh.shardCollection("backuptest.bbc", { _id : 1  } )   
+#sh.shardCollection("backuptest.bbc")   
+
+#create random data
+var day = 1000 * 60 * 60 * 24;
+var randomDate = function () {
+  return new Date(Date.now() - (Math.floor(Math.random() * day)));
+}
+for (var i = 1; i <= 20000; ++i) {
+    var randomName = (Math.random()+1).toString(36).substring(2);
+    db.bbc.insertOne({name: randomName, creationDate: randomDate(), uid: i});
+  }
+db.bbc.countDocuments()
+
+db.printShardingStatus()
+#check chunks distribution
+db.bbc.getShardDistribution()
+```
+```sh
 db.adminCommand( { movePrimary: "backuptest", to: "rs0" } )
 db.adminCommand( { removeShard: "rs1" } )
 db.printShardingStatus()
+#sharddown by CR
 kustomize build tasks/sharding/sharddown/|kb apply -f -
 > request":"percona/mongo1","error":"check remove posibility for rs rs1: non system db found: backuptest","errorVerbose":"non system db found:
 ```
