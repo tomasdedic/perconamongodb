@@ -5,3 +5,4 @@
 [tasks](static/03-operatorTasks.md)  
 [backup+recovery](static/04-backupRecovery.md)  
 [management+monitoring](static/05-pmm.md)  
+[tosolve](static/tosolve.md)  

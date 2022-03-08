@@ -1,0 +1,24 @@
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDBRestore
+metadata:
+  name: restore1
+spec:
+  clusterName: mongo2
+  backupSource:
+    destination: s3://backuptest/2022-03-02T14:55:48Z
+    s3:
+      region: westeurope
+      credentialsSecret: minio-backup
+      endpointUrl: http://minio:9000
+#  backupSource:
+#    destination: s3://S3-BACKUP-BUCKET-NAME-HERE/BACKUP-DESTINATION
+#    s3:
+#      credentialsSecret: my-cluster-name-backup-s3
+#      region: us-west-2
+#      bucket: S3-BACKUP-BUCKET-NAME-HERE
+#      endpointUrl: https://s3.us-west-2.amazonaws.com/
+#      prefix: ""
+#    azure:
+#      credentialsSecret: SECRET-NAME
+#      prefix: PREFIX-NAME
+#      container: CONTAINER-NAME
