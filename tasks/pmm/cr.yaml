@@ -19,9 +19,9 @@ spec:
       hostPort: 0
       port: 27017
     operationProfiling:
-      mode: slowOp
-      rateLimit: 100
-      slowOpThresholdMs: 100
+      mode: all
+      slowOpThresholdMs: 200
+      rateLimit: 100 # (Only available with Percona Server for MongoDB.)
     security:
       enableEncryption: true
       encryptionCipherMode: AES256-CBC
