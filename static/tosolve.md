@@ -55,3 +55,9 @@ status:
     - minimum field size of 1, HeadObjectInput.Bucket.
   state: error
 ```
+
+## 4. PMM integration
+Is it necessary to make a part of creating custom PMM mongoDB  instance MongoDB **Instances OverviewPMM ---> InventoryPMM ---> Add Instance ---> Add a Remote MongoDB Instance**.  
+In fact question would be " Is it necessary to configure PMM or all important
+stuff is already defined in CR"
+

@@ -38,7 +38,7 @@ var day = 1000 * 60 * 60 * 24;
 var randomDate = function () {
   return new Date(Date.now() - (Math.floor(Math.random() * day)));
 }
-for (var i = 1; i <= 20000; ++i) {
+for (var i = 1; i <= 200000; ++i) {
     var randomName = (Math.random()+1).toString(36).substring(2);
     db.bbc.insertOne({name: randomName, creationDate: randomDate(), uid: i});
   }

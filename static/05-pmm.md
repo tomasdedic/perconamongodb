@@ -24,7 +24,7 @@ kb apply -f tasks/deploy/secrets.yaml
 kb apply -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.11.0/deploy/bundle.yaml 
 helm repo add percona https://percona-charts.storage.googleapis.com
 helm repo update
-helm install monitoring percona/pmm-server --set platform=kubernetes --version 2.7.0 --set "credentials.password=admin123456"
+helm install monitoring percona/pmm-server --set "platform=kubernetes" --version 2.7.0 --set "credentials.password=admin123456" --set "persistence.size=100Gi"
 ```
 
 ## Instalace PMM client
@@ -97,7 +97,7 @@ PORT=$(kb get svc mongo1-mongos -o yaml|yq '.spec.ports[0].port')
 kb get svc mongo1-mongos -o yaml|yq --unwrapScalar=false '.metadata.name + ":" + .spec.ports[0].port'
 
 #nebo prez pmm-admin tool lokalne 
-kb exec monitoring-0 -- pmm-admin add mongodb \
+kb exec monitoring-0 -- bash -c "pmm-admin add mongodb \
 --username=$USER --password=$PASSWORD \
---service-name=mymongosvc --host=$HOST --port=$PORT
+--service-name=mymongosvc --host=$HOST --port=$PORT"
 ```
