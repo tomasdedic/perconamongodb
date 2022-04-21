@@ -1,20 +1,23 @@
 # Instalace PMM server
-[Instalace SERVER](https://www.percona.com/blog/2020/07/23/using-percona-kubernetes-operators-with-percona-monitoring-and-management)  
 
 ## Vytvoření secret pro propojení agenta s percona serverem
 Zkontrolovat zda jsou nastaveny User a Password
 
 ```sh
+#check password
 kb get secrets my-cluster-name-secrets -o yaml|yq e '.data.PMM_SERVER_USER' -|base64 -d &&echo
 #PMM_SERVER_USER: admin
 
-kb get secrets my-clister-name-users -o yaml|yq e '.data.PMM_SERVER_PASSWORD' -|base64 -d &&echo
+kb get secrets my-cluster-name-users -o yaml|yq e '.data.PMM_SERVER_PASSWORD' -|base64 -d &&echo
 #PMM_SERVER_PASSWORD: admin123456
 ```
-pokud nejsou muzeme pouzit zde
+
 ```sh
-#bud patch
-kubectl patch secret/my-cluster-name-secrets -p '{"data":{"PMM_SERVER_PASSWORD": '$(echo -n admin12346 | base64)'}}'
+#zmena nebo priprava
+kb patch secret/my-cluster-name-secrets -p '{"data":{"PMM_SERVER_PASSWORD": '\"$(echo -n admin123456 | base64)\"'}}'
+#pokud cluster uz bezi je potreba patchnout internal secrets jelikoz si je
+#vytvari pri instalaci a pody mongo je pak referencuji
+kb patch secret/internal-mongo1-users -p '{"data":{"PMM_SERVER_PASSWORD": '\"$(echo -n admin123456 | base64)\"'}}'
 #nebo prepripravene
 kb apply -f tasks/deploy/secrets.yaml
 ```
@@ -24,7 +27,15 @@ kb apply -f tasks/deploy/secrets.yaml
 kb apply -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.11.0/deploy/bundle.yaml 
 helm repo add percona https://percona-charts.storage.googleapis.com
 helm repo update
-helm install monitoring percona/pmm-server --set "platform=kubernetes" --version 2.7.0 --set "credentials.password=admin123456" --set "persistence.size=100Gi"
+helm install monitoring percona/pmm-server --set "platform=kubernetes" --version 2.26.1 --set "persistence.size=100Gi"
+```
+```sh
+#pripojeni k serveru
+MONGO_CONN=$(kb get svc monitoring-service -o yaml|yq e '.status.loadBalancer.ingress[0].ip' -)
+echo "https://$MONGO_CONN"
+# prihlasime se admin/admin a heslo zmenime
+# nebo lze default heslo zmenit prez cli grafany
+kb exec -it monitoring-0 -- bash -c 'grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password admin123456'
 ```
 
 ## Instalace PMM client
@@ -33,15 +44,10 @@ helm install monitoring percona/pmm-server --set "platform=kubernetes" --version
 #patch CR
 kb apply -f tasks/pmm/cr.yaml
 ```
-Dojde k injektnuti containeru s PMM clientem
-
-## Connection
-```sh
-MONGO_CONN=$(kb get svc monitoring-service -o yaml|yq e '.status.loadBalancer.ingress[0].ip' -)
-echo "https://$MONGO_CONN"
-```
+Dojde k injektnuti containeru s PMM clientem do jednotlivych podu mongodb
 
 ## Profiling
+Pro exporter se vyuziva uzivatel **clusterMonitor** 
 ```sh
 operationProfiling:
   mode: all
@@ -83,21 +89,4 @@ db.getSiblingDB("admin").updateUser("clusterMonitor",
       { role: "read", db: "local" }
    ]
 })
-```
-Dale je nutne servisu pripojit k PMM grafane serveru  a to udelame prez
-management
-a nebo
-```sh
-MongoDB Instances OverviewPMM ---> InventoryPMM ---> Add Instance ---> Add a Remote MongoDB Instance
-
-USER=$(kb get secrets my-cluster-name-secrets -o yaml|yq e '.data.MONGODB_CLUSTER_MONITOR_USER' -|base64 -d) 
-PASSWORD=$(kb get secrets my-cluster-name-secrets -o yaml|yq e '.data.MONGODB_CLUSTER_MONITOR_PASSWORD' -|base64 -d) 
-HOST=$(kb get svc mongo1-mongos -o yaml|yq '.metadata.name')
-PORT=$(kb get svc mongo1-mongos -o yaml|yq '.spec.ports[0].port')
-kb get svc mongo1-mongos -o yaml|yq --unwrapScalar=false '.metadata.name + ":" + .spec.ports[0].port'
-
-#nebo prez pmm-admin tool lokalne 
-kb exec monitoring-0 -- bash -c "pmm-admin add mongodb \
---username=$USER --password=$PASSWORD \
---service-name=mymongosvc --host=$HOST --port=$PORT"
 ```
